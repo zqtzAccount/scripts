@@ -137,6 +137,25 @@ local Window = Library:CreateWindow({
     Resize = true
 }) 	
 
+local function getKeyCodeHex(keyName)
+    if not keyName then return "0x45" end
+    
+    -- Handle common special keys manually if needed
+    local upperKey = string.upper(keyName)
+    if upperKey == "SPACE" then
+        return "0x20"
+    elseif upperKey == "BACKQUOTE" or upperKey == "`" then
+        return "0xC0"
+    end
+
+    -- For standard single-character keys (A-Z, 0-9)
+    if #keyName == 1 then
+        return string.format("0x%X", string.byte(upperKey))
+    end
+    
+    return "0x45" -- fallback
+end
+
 local Info = Window:AddTab({Title = "Info", Icon = "house"})
 
 Info:AddParagraph({
@@ -185,7 +204,7 @@ local jumpshotKey = Main:AddKeybind({
     Title = "Jumpshot keybind", 
     Default = "E", 
     ChangedCallback = function(Key) 
-        _G.Settings.Keybinds.Jumpshot = string.format("0x%X", string.byte(Key))
+        _G.Settings.Keybinds.Jumpshot = getKeyCodeHex(tostring(Key))
     end 
 })
 
@@ -194,7 +213,7 @@ local dunkingKey = Main:AddKeybind({
     Title = "Dunking keybind", 
     Default = "Space", 
     ChangedCallback = function(Key) 
-        _G.Settings.Keybinds.Dunking = string.format("0x%X", string.byte(Key))
+        _G.Settings.Keybinds.Dunking = getKeyCodeHex(tostring(Key))
     end 
 })
 
