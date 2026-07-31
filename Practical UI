@@ -61,7 +61,7 @@ task.spawn(function()
                 local hasBall = Basketball and Basketball.Value ~= nil
 
                 if hasBall then
-                    local Key = isJumping and Keybinds.Jumpshot or Keybinds.Dunking
+                    local Key = isJumping and 0x45 or 0x20
 
                     if Mode == "Bar" then
                         Pressing = true
