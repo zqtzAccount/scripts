@@ -185,7 +185,7 @@ local jumpshotKey = Main:AddKeybind({
     Title = "Jumpshot keybind", 
     Default = "E", 
     ChangedCallback = function(Key) 
-        _G.Settings.Keybinds.Jumpshot = tonumber(string.format("0x%X", string.byte(Key)))
+        _G.Settings.Keybinds.Jumpshot = string.format("0x%X", string.byte(Key))
     end 
 })
 
@@ -194,7 +194,7 @@ local dunkingKey = Main:AddKeybind({
     Title = "Dunking keybind", 
     Default = "Space", 
     ChangedCallback = function(Key) 
-        _G.Settings.Keybinds.Dunking = tonumber(string.format("0x%X", string.byte(Key)))
+        _G.Settings.Keybinds.Dunking = string.format("0x%X", string.byte(Key))
     end 
 })
 
