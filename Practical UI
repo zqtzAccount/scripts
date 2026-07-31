@@ -23,8 +23,8 @@ _G.Settings = {
     Toggled = true,
     Mode = "Bar",
     Keybinds = {
-        Jumpshot = 0x45,
-        Dunking = 0x20
+        Jumpshot = "0x45",
+        Dunking = "0x20"
     },
     Configs = {
         Bar = {
@@ -53,8 +53,8 @@ task.spawn(function()
             local Mode = Settings.Mode
             local Config = Settings.Configs[Mode]
 
-            local isJumping = iskeypressed(Keybinds.Jumpshot)
-            local isDunking = iskeypressed(Keybinds.Dunking)
+            local isJumping = iskeypressed(tonumber(Keybinds.Jumpshot))
+            local isDunking = iskeypressed(tonumber(Keybinds.Dunking))
 
             if (isJumping or isDunking) and not Pressing then
                 local Basketball = Character:FindFirstChild("Attributes") and Character.Attributes:FindFirstChild("Basketball")
