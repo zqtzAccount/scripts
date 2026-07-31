@@ -140,20 +140,19 @@ local Window = Library:CreateWindow({
 local function getKeyCodeHex(keyName)
     if not keyName then return "0x45" end
     
-    -- Handle common special keys manually if needed
     local upperKey = string.upper(keyName)
+
     if upperKey == "SPACE" then
         return "0x20"
     elseif upperKey == "BACKQUOTE" or upperKey == "`" then
         return "0xC0"
     end
 
-    -- For standard single-character keys (A-Z, 0-9)
     if #keyName == 1 then
         return string.format("0x%X", string.byte(upperKey))
     end
     
-    return "0x45" -- fallback
+    return "0x45"
 end
 
 local Info = Window:AddTab({Title = "Info", Icon = "house"})
