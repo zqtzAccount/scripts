@@ -1,0 +1,258 @@
+-- // Auto Green Logic
+
+--Works best with vertical meter, y values have to be adjusted for other meters
+--The releaseY depends on your ping, suggested range is -1.3 to -1.45 which should be lowered with higher ping (example values, not tested: 20 ping -> -1.375, 50 ping -> -1.32)
+--For controller support use ds4windows to remap square on ps5 or button x on xbox to the E key
+
+--Keyboard: E/Space
+--Controller: Square/Button X
+
+--Hold the shooting input until the script releases for you for it to work
+
+--Please read before asking any questions^^
+
+if _G.autoGreenLoaded then
+    return
+end
+
+print("Green running")
+
+_G.autoGreenLoaded = true
+
+_G.Settings = {
+    Toggled = true,
+    Mode = "Bar",
+    Keybinds = {
+        Jumpshot = 0x45,
+        Dunking = 0x20
+    },
+    Configs = {
+        Bar = {
+            downY = -1,
+            releaseY = -1.375
+        },
+        Timing = {
+            jumpTiming = 0.5,
+            dunkTiming = 0.5
+        }
+    }
+}
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Character = workspace:WaitForChild("Characters"):WaitForChild(LocalPlayer.Name)
+
+local Pressing = false
+
+task.spawn(function()
+    while true do
+        local Settings = _G.Settings
+
+        if Settings.Toggled then
+            local Keybinds = Settings.Keybinds
+            local Mode = Settings.Mode
+            local Config = Settings.Configs[Mode]
+
+            local isJumping = iskeypressed(Keybinds.Jumpshot)
+            local isDunking = iskeypressed(Keybinds.Dunking)
+
+            if (isJumping or isDunking) and not Pressing then
+                local Basketball = Character:FindFirstChild("Attributes") and Character.Attributes:FindFirstChild("Basketball")
+                local hasBall = Basketball and Basketball.Value ~= nil
+
+                if hasBall then
+                    local Key = isJumping and Keybinds.Jumpshot or Keybinds.Dunking
+
+                    if Mode == "Bar" then
+                        Pressing = true
+                        local hasStartedLow = false
+                        local canRelease, shouldRelease = false, true
+
+                        if not iskeypressed(Key) then
+                            keypress(Key)
+                        end
+                        
+                        repeat 
+                            task.wait(1 / 60)
+                            local ballAttr = Character:FindFirstChild("Attributes") and Character.Attributes:FindFirstChild("Basketball")
+                            
+                            if not (ballAttr and ballAttr.Value ~= nil) then
+                                canRelease = true
+                                shouldRelease = false
+                                break
+                            end
+
+                            local meterOffset = Character:GetAttribute("meterOffset")
+                            local Y = meterOffset and meterOffset.y or 0
+
+                            if Y >= Config.downY then
+                                hasStartedLow = true
+                            end
+
+                            if Y <= Config.releaseY and hasStartedLow then
+                                canRelease = true
+                            end
+                        until canRelease == true
+
+                        if shouldRelease then
+                            keyrelease(Key)
+                        end
+
+                        Pressing = false
+                    elseif Mode == "Timing" then
+                        Pressing = true
+
+                        keypress(Key)
+
+                        task.wait(isJumping and Config.jumpTiming or Config.dunkTiming)
+
+                        keyrelease(Key)
+
+                        Pressing = false
+                    end
+                end
+            end
+        end 
+
+        task.wait(1 / 30)
+    end
+end)
+
+-- // GUI
+
+local success, Library = pcall(function()
+    loadstring(game:HttpGet("https://scripts.wabisabi.mom/wabi-sabi-ui-lib.lua"))()
+    return WabiSabi
+end)
+
+if not success or not Library then
+    warn("Failed to load WabiSabi UI Library")
+    return
+end
+
+local Window = Library:CreateWindow({
+    Title = "Practical Basketball",
+    SubTitle = "Auto Green",
+    Size = Vector2.new(580, 560),
+    Resize = true
+}) 	
+
+local Info = Window:AddTab({Title = "Info", Icon = "house"})
+
+Info:AddParagraph({
+    Title = "Tutorial",
+    Content = "*SHOOT DELAY DOES NOT EFFECT SCRIPT* When using the default inputs that practical uses to detect shooting, you must keep holding them until the script times the shot. Otherwise you can tap it once and it will time the shot for you."
+})
+
+Info:AddParagraph({
+    Title = "Controller Support",
+    Content = "As of now, there is no way to detect controller inputs, so use DS4Windows to remap your jumpshot input and dunking input to keyboard inputs"
+})
+
+Info:AddParagraph({
+    Title = "Bar Green",
+    Content = "Default values were made for the vertical meter. This works best on lower ping, on higher ping it is recommended to lower the releaseY (example values, not testeed: 20 ping -> -1.375, 50 ping -> -1.33)"
+})
+
+Info:AddParagraph({
+    Title = "Timing Green",
+    Content = "This will use a preset timing for jumpshots (E key) and dunking (Space key), might work depending on values"
+})
+
+local Main = Window:AddTab({Title = "Main", Icon = "sliders-horizontal"})
+
+local Toggle = Main:AddToggle({
+    Id = "toggle_script",
+    Title = "Toggle Green",
+    Default = true,
+    Callback = function(Value)
+        _G.Settings.Toggled = Value
+    end
+})
+
+local Timing = Main:AddToggle({
+    Id = "timing_switch",
+    Title = "Mode",
+    Description = "On will use bar mode, off will use timing mode",
+    Default = true,
+    Callback = function(Value)
+        _G.Settings.Mode = Value and "Bar" or "Timing"
+    end
+})
+
+local jumpshotKey = Main:AddKeybind({
+    Id = "jumpshotKey",
+    Title = "Jumpshot keybind", 
+    Default = "E", 
+    ChangedCallback = function(Key) 
+        _G.Settings.Keybinds.Jumpshot = tonumber(string.format("0x%X", string.byte(Key)))
+    end 
+})
+
+local dunkingKey = Main:AddKeybind({
+    Id = "dunkingKey",
+    Title = "Dunking keybind", 
+    Default = "Space", 
+    ChangedCallback = function(Key) 
+        _G.Settings.Keybinds.Dunking = tonumber(string.format("0x%X", string.byte(Key)))
+    end 
+})
+
+local downY = Main:AddSlider({
+    Id = "downY",
+    Title = "downY",
+    Description = "Number that the script uses to detect when the meter has been reset on bar mode",
+    Min = -3,
+    Max = 0,
+    Default = -1,
+    Rounding = 3,
+    Callback = function(Value)
+        _G.Settings.Configs.Bar.downY = Value
+    end
+})
+
+local releaseY = Main:AddSlider({
+    Id = "releaseY",
+    Title = "releaseY",
+    Description = "Determines when the script will release the timing on bar mode",
+    Min = -3,
+    Max = 0,
+    Default = -1.375,
+    Rounding = 3,
+    Callback = function(Value)
+        _G.Settings.Configs.Bar.releaseY = Value
+    end
+})
+
+local jumpshotTiming = Main:AddSlider({
+    Id = "jumpshotTiming",
+    Title = "jumpshotTiming",
+    Description = "Delay when the script will release the timing on timing mode using the jumpshot key",
+    Min = 0,
+    Max = 1.5,
+    Default = 0.5,
+    Rounding = 3,
+    Callback = function(Value)
+        _G.Settings.Configs.Timing.jumpTiming = Value
+    end
+})
+
+local dunkTiming = Main:AddSlider({
+    Id = "dunkTiming",
+    Title = "dunkTiming",
+    Description = "Delay when the script will release the timing on timing mode using the dunking key",
+    Min = 0,
+    Max = 1.5,
+    Default = 0.5,
+    Rounding = 3,
+    Callback = function(Value)
+        _G.Settings.Configs.Timing.dunkTiming = Value
+    end
+})
+
+local Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+
+Window:BuildInterfaceSection(Settings)
+Window:BuildConfigSection(Settings)
+
+Library:LoadAutoloadConfig()
