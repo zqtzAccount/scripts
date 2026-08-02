@@ -89,7 +89,7 @@ function calculateDynamicCompensation(currentAxis, releaseAxis, oppositeChecks)
     lastAxis = currentAxis
     lastTime = currentTime
 
-    local Ping = (typeof(GetPingValue) == "function" and GetPingValue() or 50) / 1000
+    local Ping = GetPingValue() / 1000
     local oneWayTrip = Ping / 2
 
     local compensationDistance = currentVelocity * oneWayTrip
