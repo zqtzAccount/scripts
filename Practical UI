@@ -1,7 +1,9 @@
 -- // Auto Green Logic
 
 if _G.autoGreenLoaded then
-    return
+    if _G.autoGreenConnection then
+        _G.autoGreenConnection:Disconnect()
+    end
 end
 
 print("Green running")
@@ -19,7 +21,8 @@ _G.Settings = {
     Configs = {
         Bar = {
             downAxis = -1,
-            releaseAxis = -1.375
+            releaseAxis = -1.375,
+            barDuration = 0.8
         },
         Timing = {
             jumpTiming = 0.5,
@@ -32,10 +35,8 @@ _G.Settings = {
 }
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Character = workspace:WaitForChild("Characters"):WaitForChild(LocalPlayer.Name)
-
-local Pressing = false
 
 local baseValues = {
     ["Vertical"] = {
@@ -72,24 +73,35 @@ local baseValues = {
     }
 }
 
-function pingCompensation(releaseAxis : number, downAxis : number, oppositeChecks : boolean): number
-    local ping = GetPingValue() / 1000
-    local oneWay = ping / 2
+local lastAxis = 0
+local lastTime = 0
+local currentVelocity = 0
 
-    local barDuration = 0.8
-    local compensationPercent = oneWay / barDuration
+function calculateDynamicCompensation(currentAxis, releaseAxis, oppositeChecks)
+    local currentTime = os.clock()
+    local deltaTime = currentTime - lastTime
+    
+    if deltaTime > 0 and deltaTime < 0.1 then
+        local deltaAxis = currentAxis - lastAxis
+        currentVelocity = deltaAxis / deltaTime
+    end
+    
+    lastAxis = currentAxis
+    lastTime = currentTime
 
-    local range = math.abs(releaseAxis - downAxis)
-    local compensation = range * compensationPercent
+    local Ping = (typeof(GetPingValue) == "function" and GetPingValue() or 50) / 1000
+    local oneWayTrip = Ping / 2
+
+    local compensationDistance = currentVelocity * oneWayTrip
 
     if oppositeChecks then
-        return releaseAxis + compensation
+        return releaseAxis + compensationDistance
     else
-        return releaseAxis - compensation
+        return releaseAxis - compensationDistance
     end
 end
 
-function fetchAutoAdjustValues(Meter : string): ({[string] : string | number | boolean})
+function fetchAutoAdjustValues(Meter)
     local Values = baseValues[Meter]
 
     if not Values then
@@ -98,123 +110,146 @@ function fetchAutoAdjustValues(Meter : string): ({[string] : string | number | b
 
     return {
         downAxis = Values.downAxis,
-        releaseAxis = pingCompensation(Values.releaseAxis, Values.downAxis, Values.oppositeChecks or false),
+        releaseAxis = Values.releaseAxis,
         barAxis = Values.barAxis,
         oppositeChecks = Values.oppositeChecks or false
     }
 end
 
-task.spawn(function()
-    while _G.autoGreenLoaded do
-        local Settings = _G.Settings
+local activeShooting = false
+local activeKey = nil
+local hasStartedLow = false
+local shootingMode = nil
+local shootStartTime = 0
+local waitingForKeyRelease = false
 
-        if Settings.Toggled then
-            local Keybinds = Settings.Keybinds
-            local Mode = Settings.Mode
-            local Config = Settings.Configs[Mode]
+_G.autoGreenConnection = RunService.RenderStepped:Connect(function()
+    if not _G.autoGreenLoaded or not _G.Settings.Toggled then
+        return 
+    end
+    
+    local Character = workspace:FindFirstChild("Characters") and workspace.Characters:FindFirstChild(LocalPlayer.Name)
 
-            local isJumping = iskeypressed(tonumber(Keybinds.Jumpshot))
-            local isDunking = iskeypressed(tonumber(Keybinds.Dunking))
+    if not Character then
+        return
+    end
 
-            if (isJumping or isDunking) and not Pressing then
-                local Basketball = Character:FindFirstChild("Attributes") and Character.Attributes:FindFirstChild("Basketball")
-                local hasBall = Basketball and Basketball.Value ~= nil
+    local Settings = _G.Settings
+    local Keybinds = Settings.Keybinds
+    local Mode = Settings.Mode
+    local Config = Settings.Configs[Mode]
 
-                if hasBall then
-                    local Key = isJumping and 0x45 or 0x20
+    local jumpKey = tonumber(Keybinds.Jumpshot)
+    local dunkKey = tonumber(Keybinds.Dunking)
+    
+    local isJumping = iskeypressed(jumpKey)
+    local isDunking = iskeypressed(dunkKey)
 
-                    if Mode == "Bar" then
-                        Pressing = true
+    if waitingForKeyRelease then
+        if not isJumping and not isDunking then
+            waitingForKeyRelease = false
+        end
 
-                        local hasStartedLow = false
-                        local canRelease, shouldRelease = false, true
+        return
+    end
 
-                        if not iskeypressed(Key) then
-                            keypress(Key)
-                        end
-                        
-                        repeat 
-                            task.wait(1 / 60)
+    local Basketball = Character:FindFirstChild("Attributes") and Character.Attributes:FindFirstChild("Basketball")
+    local hasBall = Basketball and Basketball.Value ~= nil
 
-                            local ballAttr = Character:FindFirstChild("Attributes") and Character.Attributes:FindFirstChild("Basketball")
-                                
-                            if not (ballAttr and ballAttr.Value ~= nil) then
-                                canRelease = true
-                                shouldRelease = false
-                                break
-                            end
+    if not activeShooting then
+        if (isJumping or isDunking) and hasBall then
+            activeShooting = true
+            activeKey = isJumping and jumpKey or dunkKey
+            hasStartedLow = false
+            shootingMode = Mode
+            shootStartTime = os.clock()
+            
+            lastTime = shootStartTime
+            currentVelocity = 0
 
-                            local meterOffset = Character:GetAttribute("meterOffset")
-                            
-                            local barAxis = Settings.barAxis
-                            local oppositeChecks = Settings.oppositeChecks
+            if not iskeypressed(activeKey) then
+                keypress(activeKey)
+            end
+        end
+    else
+        if not hasBall then
+            activeShooting = false
+            waitingForKeyRelease = true
+            keyrelease(activeKey)
+            return
+        end
 
-                            local downAxis, releaseAxis = Config.downAxis, Config.releaseAxis
+        if shootingMode == "Bar" then
+            local meterOffset = Character:GetAttribute("meterOffset")
+            
+            if not meterOffset then return end 
+            
+            local barAxis = Settings.barAxis
+            local oppositeChecks = Settings.oppositeChecks
+            local downAxis = Settings.Configs.Bar.downAxis
+            local rawReleaseAxis = Settings.Configs.Bar.releaseAxis
 
-                            if Settings.autoAdjust then
-                                local Values = fetchAutoAdjustValues(Settings.currentMeter)
+            if Settings.autoAdjust then
+                local Values = fetchAutoAdjustValues(Settings.currentMeter)
 
-                                if not Values then
-                                    continue
-                                end
-
-                                barAxis, downAxis, releaseAxis = Values.barAxis, Values.downAxis, Values.releaseAxis
-                                oppositeChecks = Values.oppositeChecks or false
-                            end
-
-                            local Axis = meterOffset and meterOffset[string.lower(barAxis)] or 0
-
-                            if oppositeChecks and Axis <= downAxis or not oppositeChecks and Axis >= downAxis then
-                                hasStartedLow = true
-                            end
-
-                            if (oppositeChecks and Axis >= releaseAxis or not oppositeChecks and Axis <= releaseAxis) and hasStartedLow then
-                                canRelease = true
-                            end
-                        until canRelease == true
-
-                        if shouldRelease then
-                            keyrelease(Key)
-                        end
-
-                        Pressing = false
-                    elseif Mode == "Timing" then
-                        Pressing = true
-
-                        keypress(Key)
-
-                        task.wait(isJumping and Config.jumpTiming or Config.dunkTiming)
-
-                        keyrelease(Key)
-
-                        Pressing = false
-                    end
+                if Values then
+                    barAxis = Values.barAxis
+                    downAxis = Values.downAxis
+                    rawReleaseAxis = Values.releaseAxis
+                    oppositeChecks = Values.oppositeChecks
                 end
             end
-        end 
 
-        task.wait(1 / 10)
+            local Axis = meterOffset[string.lower(barAxis)] or 0
+            
+            -- // dynamic composition made by ai, works well
+
+            local compensatedReleaseAxis = calculateDynamicCompensation(Axis, rawReleaseAxis, oppositeChecks)
+
+            if (oppositeChecks and Axis <= downAxis) or (not oppositeChecks and Axis >= downAxis) then
+                hasStartedLow = true
+            end
+
+            if hasStartedLow then
+                local shouldRelease = (oppositeChecks and Axis >= compensatedReleaseAxis) or (not oppositeChecks and Axis <= compensatedReleaseAxis)
+                if shouldRelease then
+                    keyrelease(activeKey)
+                    activeShooting = false
+                    waitingForKeyRelease = true
+                end
+            end
+
+        elseif shootingMode == "Timing" then
+            local targetTime = (activeKey == jumpKey) and Config.jumpTiming or Config.dunkTiming
+            
+            if os.clock() - shootStartTime >= targetTime then
+                keyrelease(activeKey)
+                activeShooting = false
+                waitingForKeyRelease = true
+            end
+        end
     end
 end)
 
 -- // GUI
 
-local success, Library = pcall(function()
+local Success, Library = pcall(function()
     loadstring(game:HttpGet("https://scripts.wabisabi.mom/wabi-sabi-ui-lib.lua"))()
+
     return WabiSabi
 end)
 
-if not success or not Library then
+if not Success or not Library then
     warn("Failed to load WabiSabi UI Library")
     return
 end
 
 local Window = Library:CreateWindow({
     Title = "Practical Basketball",
-    SubTitle = "Auto Green V1.1",
+    SubTitle = "Auto Green V1.1.1",
     Size = Vector2.new(800, 900),
     Resize = true
-}) 	
+})  
 
 function getKeyCodeHex(keyName)
     if not keyName then return "0x45" end
@@ -336,6 +371,19 @@ local dunkingKey = Main:AddKeybind({
     end 
 })
 
+local barDuration = Main:AddSlider({
+    Id = "barDuration",
+    Title = "Bar duration",
+    Description = "Time it takes for the meter to fill which is used for ping compensation.",
+    Min = 0.4,
+    Max = 1.2,
+    Default = 0.8,
+    Rounding = 2,
+    Callback = function(Value)
+        _G.Settings.Configs.Bar.barDuration = Value
+    end
+})
+
 local downAxis = Main:AddSlider({
     Id = "downAxis",
     Title = "downAxis",
@@ -396,5 +444,9 @@ Window:BuildConfigSection(Settings)
 Library:LoadAutoloadConfig()
 
 Library:OnUnload(function()
-    _G.autoGreenLoaded, _G.Config = false, nil
+    _G.autoGreenLoaded = false
+
+    _G.autoGreenConnection:Disconnect()
+
+    _G.Config, _G.autoGreenConnection = nil, nil
 end)
