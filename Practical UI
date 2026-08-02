@@ -1,16 +1,5 @@
 -- // Auto Green Logic
 
---Works best with vertical meter, y values have to be adjusted for other meters
---The releaseY depends on your ping, suggested range is -1.3 to -1.45 which should be lowered with higher ping (example values, not tested: 20 ping -> -1.375, 50 ping -> -1.32)
---For controller support use ds4windows to remap square on ps5 or button x on xbox to the E key
-
---Keyboard: E/Space
---Controller: Square/Button X
-
---Hold the shooting input until the script releases for you for it to work
-
---Please read before asking any questions^^
-
 if _G.autoGreenLoaded then
     return
 end
@@ -22,20 +11,24 @@ _G.autoGreenLoaded = true
 _G.Settings = {
     Toggled = true,
     Mode = "Bar",
+    barAxis = "Y",
     Keybinds = {
         Jumpshot = "0x45",
         Dunking = "0x20"
     },
     Configs = {
         Bar = {
-            downY = -1,
-            releaseY = -1.375
+            downAxis = -1,
+            releaseAxis = -1.375
         },
         Timing = {
             jumpTiming = 0.5,
             dunkTiming = 0.5
         }
-    }
+    },
+    currentMeter = "Vertical",
+    autoAdjust = true,
+    oppositeChecks = false
 }
 
 local Players = game:GetService("Players")
@@ -44,8 +37,75 @@ local Character = workspace:WaitForChild("Characters"):WaitForChild(LocalPlayer.
 
 local Pressing = false
 
+local baseValues = {
+    ["Vertical"] = {
+        downAxis = -1,
+        releaseAxis = -1.375,
+        barAxis = "Y"
+    },
+    ["Funnel"] = {
+        downAxis = -0.4,
+        releaseAxis = -0.8875,
+        barAxis = "Y"
+    },
+    ["Bat"] = {
+        downAxis = -0.4,
+        releaseAxis = -0.8875,
+        barAxis = "Y"
+    },
+    ["Roblox"] = {
+        downAxis = 0.4,
+        releaseAxis = 0.8875,
+        barAxis = "X",
+        oppositeChecks = true
+    },
+    ["Rocket"] = {
+        downAxis = -0.4,
+        releaseAxis = -0.8875,
+        barAxis = "Y"
+    },
+    ["Hoop"] = {
+        downAxis = 0.4,
+        releaseAxis = 0.8875,
+        barAxis = "Y",
+        oppositeChecks = true
+    }
+}
+
+function pingCompensation(releaseAxis : number, downAxis : number, oppositeChecks : boolean): number
+    local ping = GetPingValue() / 1000
+    local oneWay = ping / 2
+
+    local barDuration = 0.8
+    local compensationPercent = oneWay / barDuration
+
+    local range = math.abs(releaseAxis - downAxis)
+    local compensation = range * compensationPercent
+
+    if oppositeChecks then
+        return releaseAxis + compensation
+    else
+        return releaseAxis - compensation
+    end
+end
+
+function fetchAutoAdjustValues(Meter : string): ({[string] : string | number | boolean})
+    local Values = baseValues[Meter]
+
+    if not Values then
+        return nil
+    end
+
+    return {
+        downAxis = Values.downAxis,
+        releaseAxis = pingCompensation(Values.releaseAxis, Values.downAxis, Values.oppositeChecks or false),
+        barAxis = Values.barAxis,
+        oppositeChecks = Values.oppositeChecks or false
+    }
+end
+
 task.spawn(function()
-    while true do
+    while _G.autoGreenLoaded do
         local Settings = _G.Settings
 
         if Settings.Toggled then
@@ -65,6 +125,7 @@ task.spawn(function()
 
                     if Mode == "Bar" then
                         Pressing = true
+
                         local hasStartedLow = false
                         local canRelease, shouldRelease = false, true
 
@@ -74,8 +135,9 @@ task.spawn(function()
                         
                         repeat 
                             task.wait(1 / 60)
+
                             local ballAttr = Character:FindFirstChild("Attributes") and Character.Attributes:FindFirstChild("Basketball")
-                            
+                                
                             if not (ballAttr and ballAttr.Value ~= nil) then
                                 canRelease = true
                                 shouldRelease = false
@@ -83,13 +145,30 @@ task.spawn(function()
                             end
 
                             local meterOffset = Character:GetAttribute("meterOffset")
-                            local Y = meterOffset and meterOffset.y or 0
+                            
+                            local barAxis = Settings.barAxis
+                            local oppositeChecks = Settings.oppositeChecks
 
-                            if Y >= Config.downY then
+                            local downAxis, releaseAxis = Config.downAxis, Config.releaseAxis
+
+                            if Settings.autoAdjust then
+                                local Values = fetchAutoAdjustValues(Settings.currentMeter)
+
+                                if not Values then
+                                    continue
+                                end
+
+                                barAxis, downAxis, releaseAxis = Values.barAxis, Values.downAxis, Values.releaseAxis
+                                oppositeChecks = Values.oppositeChecks or false
+                            end
+
+                            local Axis = meterOffset and meterOffset[string.lower(barAxis)] or 0
+
+                            if oppositeChecks and Axis <= downAxis or not oppositeChecks and Axis >= downAxis then
                                 hasStartedLow = true
                             end
 
-                            if Y <= Config.releaseY and hasStartedLow then
+                            if (oppositeChecks and Axis >= releaseAxis or not oppositeChecks and Axis <= releaseAxis) and hasStartedLow then
                                 canRelease = true
                             end
                         until canRelease == true
@@ -114,7 +193,7 @@ task.spawn(function()
             end
         end 
 
-        task.wait(1 / 30)
+        task.wait(1 / 10)
     end
 end)
 
@@ -132,12 +211,12 @@ end
 
 local Window = Library:CreateWindow({
     Title = "Practical Basketball",
-    SubTitle = "Auto Green",
-    Size = Vector2.new(580, 560),
+    SubTitle = "Auto Green V1.1",
+    Size = Vector2.new(800, 800),
     Resize = true
 }) 	
 
-local function getKeyCodeHex(keyName)
+function getKeyCodeHex(keyName)
     if not keyName then return "0x45" end
     
     local upperKey = string.upper(keyName)
@@ -198,6 +277,47 @@ local Timing = Main:AddToggle({
     end
 })
 
+local autoAdjust = Main:AddToggle({
+    Id = "toggle_autoAdjust",
+    Title = "Auto Adjust",
+    Description = "On will auto adjust x/y values based on ping and meter and ignore all other values (can't use no meter)",
+    Default = true,
+    Callback = function(Value)
+        _G.Settings.autoAdjust = Value
+    end
+})
+
+local xyToggle = Main:AddToggle({
+    Id = "toggle_XY",
+    Title = "Toggle X/Y",
+    Description = "On will use Y axis, off will use X axis",
+    Default = true,
+    Callback = function(Value) 
+        _G.Settings.barAxis = Value and "Y" or "X"
+    end
+})
+
+local oppositeToggle = Main:AddToggle({
+    Id = "toggle_opposite",
+    Title = "Toggle Opposite Checks",
+    Description = "On should be used for descending/lowering meters, off should be used for ascending/raising meters as default",
+    Default = false,
+    Callback = function(Value) 
+        _G.Settings.oppositeChecks = Value
+    end
+})
+
+local meterInput = Main:AddInput({
+    Id = "meterInput",
+    Title = "Meter", 
+    Default = "Vertical", 
+    Placeholder = "Meter",
+    Description = "Necessary for auto adjust meter detection, will not work if wrong",
+    Callback = function(Text) 
+        _G.Settings.currentMeter = Text
+    end 
+})
+
 local jumpshotKey = Main:AddKeybind({
     Id = "jumpshotKey",
     Title = "Jumpshot keybind", 
@@ -216,29 +336,29 @@ local dunkingKey = Main:AddKeybind({
     end 
 })
 
-local downY = Main:AddSlider({
-    Id = "downY",
-    Title = "downY",
+local downAxis = Main:AddSlider({
+    Id = "downAxis",
+    Title = "downAxis",
     Description = "Number that the script uses to detect when the meter has been reset on bar mode",
     Min = -3,
     Max = 0,
     Default = -1,
     Rounding = 3,
     Callback = function(Value)
-        _G.Settings.Configs.Bar.downY = Value
+        _G.Settings.Configs.Bar.downXY = Value
     end
 })
 
-local releaseY = Main:AddSlider({
-    Id = "releaseY",
-    Title = "releaseY",
+local releaseAxis = Main:AddSlider({
+    Id = "releaseAxis",
+    Title = "releaseAxis",
     Description = "Determines when the script will release the timing on bar mode",
     Min = -3,
     Max = 0,
     Default = -1.375,
     Rounding = 3,
     Callback = function(Value)
-        _G.Settings.Configs.Bar.releaseY = Value
+        _G.Settings.Configs.Bar.releaseAxis = Value
     end
 })
 
@@ -274,3 +394,7 @@ Window:BuildInterfaceSection(Settings)
 Window:BuildConfigSection(Settings)
 
 Library:LoadAutoloadConfig()
+
+Library:OnUnload(function()
+    _G.autoGreenLoaded, _G.Config = false, nil
+end)
