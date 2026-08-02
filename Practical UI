@@ -212,7 +212,7 @@ end
 local Window = Library:CreateWindow({
     Title = "Practical Basketball",
     SubTitle = "Auto Green V1.1",
-    Size = Vector2.new(700, 900),
+    Size = Vector2.new(750, 900),
     Resize = true
 }) 	
 
