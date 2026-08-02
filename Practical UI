@@ -291,17 +291,22 @@ Info:AddParagraph({
 
 Info:AddParagraph({
     Title = "Controller Support",
-    Content = "As of now, there is no way to detect controller inputs, so use DS4Windows to remap your jumpshot input and dunking input to keyboard inputs"
+    Content = "As of now, there is no way to detect controller inputs, so use DS4Windows to remap your jumpshot input and dunking input to keyboard inputs."
+})
+
+Info:AddParagraph({
+    Title = "Auto Adjust Mode",
+    Content = "This works best on low/mid-ranged ping but it is not recommended to use it on any ping above 80."
 })
 
 Info:AddParagraph({
     Title = "Bar Green",
-    Content = "Default values were made for the vertical meter. This works best on lower ping, on higher ping it is recommended to lower the releaseY (example values, not testeed: 20 ping -> -1.375, 50 ping -> -1.33)"
+    Content = "Default values were made for the vertical meter. This works best on lower ping, on higher ping it is recommended to lower the releaseY. (example values, not testeed: 20 ping -> -1.375, 50 ping -> -1.33)"
 })
 
 Info:AddParagraph({
     Title = "Timing Green",
-    Content = "This will use a preset timing for jumpshots (E key) and dunking (Space key), might work depending on values"
+    Content = "This will use a preset timing for jumpshots (E key) and dunking (Space key), might work depending on values."
 })
 
 local Main = Window:AddTab({Title = "Main", Icon = "sliders-horizontal"})
