@@ -340,12 +340,12 @@ local downAxis = Main:AddSlider({
     Id = "downAxis",
     Title = "downAxis",
     Description = "Number that the script uses to detect when the meter has been reset on bar mode",
-    Min = -3,
-    Max = 0,
+    Min = -1.5,
+    Max = 1.5,
     Default = -1,
     Rounding = 3,
     Callback = function(Value)
-        _G.Settings.Configs.Bar.downXY = Value
+        _G.Settings.Configs.Bar.downAxis = Value
     end
 })
 
@@ -353,8 +353,8 @@ local releaseAxis = Main:AddSlider({
     Id = "releaseAxis",
     Title = "releaseAxis",
     Description = "Determines when the script will release the timing on bar mode",
-    Min = -3,
-    Max = 0,
+    Min = -1.5,
+    Max = 1.5,
     Default = -1.375,
     Rounding = 3,
     Callback = function(Value)
