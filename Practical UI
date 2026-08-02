@@ -76,22 +76,36 @@ local lastAxis = 0
 local lastTime = 0
 local currentVelocity = 0
 
+local SMOOTHING_FACTOR = 0.25
+local MAX_DELTA_TIME = 0.2
+local MAX_COMPENSATION = 50
+
 function calculateDynamicCompensation(currentAxis, releaseAxis, oppositeChecks)
     local currentTime = os.clock()
     local deltaTime = currentTime - lastTime
     
-    if deltaTime > 0 and deltaTime < 0.1 then
+    if deltaTime > 0 and deltaTime <= MAX_DELTA_TIME then
         local deltaAxis = currentAxis - lastAxis
-        currentVelocity = deltaAxis / deltaTime
+        local instantaneousVelocity = deltaAxis / deltaTime
+       
+        currentVelocity = currentVelocity + (instantaneousVelocity - currentVelocity) * SMOOTHING_FACTOR
+    elseif deltaTime > MAX_DELTA_TIME then
+        currentVelocity = 0
     end
     
     lastAxis = currentAxis
     lastTime = currentTime
 
-    local Ping = GetPingValue() / 1000
-    local oneWayTrip = Ping / 2
+    local ping = GetPingValue() or 0
+    local oneWayTrip = (ping / 1000) / 2
 
     local compensationDistance = currentVelocity * oneWayTrip
+
+    if compensationDistance > MAX_COMPENSATION then
+        compensationDistance = MAX_COMPENSATION
+    elseif compensationDistance < -MAX_COMPENSATION then
+        compensationDistance = -MAX_COMPENSATION
+    end
 
     if oppositeChecks then
         return releaseAxis + compensationDistance
