@@ -172,7 +172,7 @@ _G.autoGreenConnection = RunService.RenderStepped:Connect(function()
     if not activeShooting then
         if (isJumping or isDunking) and hasBall then
             activeShooting = true
-            activeKey = isJumping and jumpKey or dunkKey
+            activeKey = isJumping and 0x45 or 0x20
             hasStartedLow = false
             shootingMode = Mode
             shootStartTime = os.clock()
@@ -233,7 +233,7 @@ _G.autoGreenConnection = RunService.RenderStepped:Connect(function()
             end
 
         elseif shootingMode == "Timing" then
-            local targetTime = (activeKey == jumpKey) and Config.jumpTiming or Config.dunkTiming
+            local targetTime = (activeKey == 0x45) and Config.jumpTiming or Config.dunkTiming
             
             if os.clock() - shootStartTime >= targetTime then
                 keyrelease(activeKey)
