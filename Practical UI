@@ -21,8 +21,7 @@ _G.Settings = {
     Configs = {
         Bar = {
             downAxis = -1,
-            releaseAxis = -1.375,
-            barDuration = 0.8
+            releaseAxis = -1.375
         },
         Timing = {
             jumpTiming = 0.5,
@@ -369,19 +368,6 @@ local dunkingKey = Main:AddKeybind({
     ChangedCallback = function(Key) 
         _G.Settings.Keybinds.Dunking = getKeyCodeHex(tostring(Key))
     end 
-})
-
-local barDuration = Main:AddSlider({
-    Id = "barDuration",
-    Title = "Bar duration",
-    Description = "Time it takes for the meter to fill which is used for ping compensation.",
-    Min = 0.4,
-    Max = 1.2,
-    Default = 0.8,
-    Rounding = 2,
-    Callback = function(Value)
-        _G.Settings.Configs.Bar.barDuration = Value
-    end
 })
 
 local downAxis = Main:AddSlider({
