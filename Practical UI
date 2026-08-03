@@ -40,7 +40,7 @@ local LocalPlayer = Players.LocalPlayer
 local baseValues = {
     ["Vertical"] = {
         downAxis = -1,
-        releaseAxis = -1.375,
+        releaseAxis = -1.4125,
         barAxis = "Y"
     },
     ["Funnel"] = {
@@ -98,6 +98,10 @@ function calculateDynamicCompensation(currentAxis, releaseAxis, oppositeChecks)
 
     local ping = GetPingValue() or 0
     local oneWayTrip = (ping / 1000) / 2
+
+	if ping < 25 then
+		return releaseAxis
+	end
 
     local compensationDistance = currentVelocity * oneWayTrip
 
